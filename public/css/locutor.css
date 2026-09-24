@@ -1,0 +1,604 @@
+/* ═══════════════════════════════════════════════════════════════
+   locutor.css — Panel del Locutor · Cabina de Control
+   Tema: Dark Mode profesional estilo broadcast
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --bg-base:        #0a0a12;
+  --bg-surface:     #13131c;
+  --bg-elevated:    #1a1a28;
+  --bg-input:       #22223a;
+  --accent:         #7c5cbf;   /* púrpura broadcast */
+  --accent-2:       #e94560;   /* rojo en vivo */
+  --accent-hover:   #9b7dd4;
+  --accent-glow:    rgba(124, 92, 191, 0.3);
+  --success:        #43b581;
+  --warning:        #faa61a;
+  --text-primary:   #eaeaf0;
+  --text-secondary: #8888aa;
+  --text-muted:     #55556a;
+  --border:         #252540;
+  --radius:         12px;
+  --radius-sm:      8px;
+  --transition:     0.18s ease;
+}
+
+/* ── Reset base ───────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   HEADER DE CABINA
+   ═══════════════════════════════════════════════════════════════ */
+.cabina-header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  height: 64px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-icon { font-size: 1.6rem; }
+
+.header-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.header-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* ── Toggle EN VIVO ───────────────────────────────────────────── */
+.envivo-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.envivo-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent-2);
+}
+
+/* Toggle switch personalizado */
+.toggle-switch { position: relative; display: inline-block; cursor: pointer; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+
+.toggle-track {
+  display: block;
+  width: 48px;
+  height: 26px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  transition: background var(--transition);
+  position: relative;
+}
+
+.toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform var(--transition), background var(--transition);
+}
+
+.toggle-switch input:checked + .toggle-track {
+  background: rgba(233, 69, 96, 0.2);
+  border-color: var(--accent-2);
+}
+
+.toggle-switch input:checked + .toggle-track::after {
+  transform: translateX(22px);
+  background: var(--accent-2);
+}
+
+/* Oyentes badge */
+.oyentes-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 5px 12px;
+  border-radius: 50px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   LAYOUT PRINCIPAL
+   ═══════════════════════════════════════════════════════════════ */
+.cabina-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL IZQUIERDO — Música
+   ═══════════════════════════════════════════════════════════════ */
+.panel-musica {
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.panel-musica::-webkit-scrollbar { width: 5px; }
+.panel-musica::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Tarjetas ─────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.card-icon { font-size: 1.1rem; }
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.card-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+/* ── Tabs de fuente ───────────────────────────────────────────── */
+.fuente-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 14px;
+}
+
+.fuente-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 7px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: background var(--transition), color var(--transition);
+}
+
+.fuente-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.fuente-tab:hover:not(.active) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.fuente-panel.hidden { display: none; }
+
+/* ── Wrapper YouTube ──────────────────────────────────────────── */
+.yt-wrapper { margin-top: 12px; }
+
+.yt-placeholder {
+  background: var(--bg-input);
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-sm);
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.yt-placeholder-icon { font-size: 2rem; }
+
+/* ── Formulario de canción ────────────────────────────────────── */
+.form-cancion { display: flex; flex-direction: column; gap: 10px; }
+
+.form-row { display: flex; flex-direction: column; gap: 4px; }
+
+.form-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* ── Inputs ───────────────────────────────────────────────────── */
+.cabina-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+  color: var(--text-primary);
+  font-size: 0.87rem;
+  outline: none;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+.cabina-input::placeholder { color: var(--text-muted); }
+
+.cabina-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.input-group {
+  display: flex;
+  gap: 8px;
+}
+
+.input-group .cabina-input { flex: 1; }
+
+.input-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ── Botones ──────────────────────────────────────────────────── */
+.btn-primary {
+  background: var(--accent);
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  padding: 9px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+  white-space: nowrap;
+}
+
+.btn-primary:hover   { background: var(--accent-hover); }
+.btn-primary:active  { transform: scale(0.97); }
+.btn-primary.btn-full { width: 100%; }
+
+.btn-send {
+  width: 42px;
+  height: 42px;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── Accesos rápidos ──────────────────────────────────────────── */
+.accesos-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-acceso {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+  text-align: left;
+}
+
+.btn-acceso:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   PANEL DERECHO — Peticiones
+   ═══════════════════════════════════════════════════════════════ */
+.panel-peticiones {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-base);
+  overflow: hidden;
+}
+
+.peticiones-header {
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+/* Filtros */
+.filtros { display: flex; gap: 6px; }
+
+.filtro-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 50px;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.filtro-btn.active,
+.filtro-btn:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ── Área de peticiones ───────────────────────────────────────── */
+.peticiones-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.peticiones-container::-webkit-scrollbar { width: 6px; }
+.peticiones-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── Tarjeta de petición ──────────────────────────────────────── */
+.peticion-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: border-color var(--transition), opacity var(--transition);
+  animation: fade-slide 0.2s ease;
+}
+
+@keyframes fade-slide {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Borde izquierdo de color según tipo */
+.peticion-card.tipo-oyente  { border-left: 3px solid #4a9eca; }
+.peticion-card.tipo-locutor { border-left: 3px solid var(--accent); }
+.peticion-card.tipo-sistema { border-left: 3px solid var(--text-muted); }
+
+/* Estado completado */
+.peticion-card.completado {
+  opacity: 0.45;
+  border-left-color: var(--success) !important;
+}
+
+/* Avatar del remitente */
+.pet-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #2b5278;
+  color: #90c4f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.pet-avatar.av-locutor { background: #4b2b5f; color: #c890f7; }
+.pet-avatar.av-sistema { background: var(--bg-input); color: var(--text-muted); }
+
+/* Cuerpo de la petición */
+.pet-body { flex: 1; min-width: 0; }
+
+.pet-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 3px;
+}
+
+.pet-apodo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.pet-apodo.ap-locutor { color: #c890f7; }
+
+.pet-hora {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+.pet-texto {
+  font-size: 0.88rem;
+  color: var(--text-primary);
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+/* Mensaje de sistema en el panel de peticiones */
+.pet-sistema-msg {
+  text-align: center;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+/* Botones de acción en la petición */
+.pet-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.btn-marcar {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  transition: all var(--transition);
+  white-space: nowrap;
+}
+
+.btn-marcar:hover {
+  background: var(--success);
+  border-color: var(--success);
+  color: #fff;
+}
+
+.btn-marcar.completado-btn {
+  background: rgba(67, 181, 129, 0.15);
+  border-color: var(--success);
+  color: var(--success);
+  cursor: default;
+}
+
+/* ── Formulario del locutor ───────────────────────────────────── */
+.locutor-chat-form {
+  background: var(--bg-elevated);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  min-height: 64px;
+}
+
+.locutor-badge {
+  background: rgba(124, 92, 191, 0.2);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 5px 10px;
+  border-radius: 50px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#form-locutor {
+  display: flex;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+#input-locutor {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Toast de notificaciones ─────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+  padding: 12px 20px;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+  z-index: 999;
+  max-width: 320px;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════════════════════════ */
+@media (max-width: 900px) {
+  html, body { overflow: auto; }
+
+  .cabina-layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  .panel-musica {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .panel-peticiones { height: 70vh; }
+}

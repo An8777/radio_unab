@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel del Locutor 🎚️</title>
+  <link rel="stylesheet" href="css/locutor.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════════════════════
+       HEADER DE LA CABINA
+  ══════════════════════════════════════════════════════════ -->
+  <header class="cabina-header">
+    <div class="header-left">
+      <span class="header-icon">🎙️</span>
+      <div>
+        <h1 class="header-title">Cabina de Control</h1>
+        <span class="header-sub">Panel del Locutor — Radio en Vivo</span>
+      </div>
+    </div>
+    <div class="header-right">
+      <!-- Indicador EN VIVO / OFFLINE con toggle -->
+      <div class="envivo-control">
+        <span class="envivo-label" id="envivo-label">EN VIVO</span>
+        <label class="toggle-switch" aria-label="Toggle En Vivo">
+          <input type="checkbox" id="toggle-envivo" checked />
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <!-- Contador de oyentes -->
+      <div class="oyentes-badge">
+        <span>👥</span>
+        <span id="oyentes-count">0</span>
+        <span>oyentes</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════
+       LAYOUT PRINCIPAL — dos columnas
+  ══════════════════════════════════════════════════════════ -->
+  <main class="cabina-layout">
+
+    <!-- ─────── COLUMNA IZQUIERDA: Música y Reproducción ─────── -->
+    <section class="panel-musica" aria-label="Panel de Música y Reproducción">
+
+      <!-- ── Bloque 1: Reproductor YouTube / Stream ── -->
+      <div class="card" id="card-reproductor">
+        <div class="card-header">
+          <span class="card-icon">▶️</span>
+          <h2 class="card-title">Reproductor / Stream</h2>
+        </div>
+
+        <!-- Selector de fuente -->
+        <div class="fuente-tabs" role="tablist">
+          <button class="fuente-tab active" data-fuente="youtube" role="tab" aria-selected="true">YouTube</button>
+          <button class="fuente-tab" data-fuente="stream" role="tab" aria-selected="false">URL Stream</button>
+        </div>
+
+        <!-- Panel YouTube -->
+        <div class="fuente-panel" id="panel-youtube">
+          <div class="input-group">
+            <input
+              type="url"
+              id="input-youtube"
+              placeholder="https://www.youtube.com/watch?v=..."
+              class="cabina-input"
+              aria-label="URL de YouTube"
+            />
+            <button class="btn-primary" id="btn-cargar-yt">Cargar</button>
+          </div>
+          <!-- Iframe embebido de YouTube -->
+          <div class="yt-wrapper" id="yt-wrapper">
+            <div class="yt-placeholder" id="yt-placeholder">
+              <span class="yt-placeholder-icon">🎬</span>
+              <p>Pega un enlace de YouTube y haz clic en Cargar</p>
+            </div>
+            <iframe
+              id="yt-iframe"
+              width="100%"
+              height="200"
+              frameborder="0"
+              allow="autoplay; encrypted-media"
+              allowfullscreen
+              style="display:none; border-radius: 8px;"
+              title="Reproductor YouTube"
+            ></iframe>
+          </div>
+        </div>
+
+        <!-- Panel Stream URL -->
+        <div class="fuente-panel hidden" id="panel-stream">
+          <div class="input-group">
+            <input
+              type="url"
+              id="input-stream"
+              placeholder="https://tustream.com/radio.mp3"
+              class="cabina-input"
+              aria-label="URL del stream de audio"
+            />
+            <button class="btn-primary" id="btn-aplicar-stream">Aplicar</button>
+          </div>
+          <p class="input-hint">Esta URL se enviará a todos los oyentes como fuente de audio.</p>
+        </div>
+      </div>
+
+      <!-- ── Bloque 2: Actualizar información de la canción ── -->
+      <div class="card" id="card-cancion">
+        <div class="card-header">
+          <span class="card-icon">🎵</span>
+          <h2 class="card-title">Canción en Curso</h2>
+        </div>
+
+        <div class="form-cancion">
+          <div class="form-row">
+            <label class="form-label" for="inp-programa">Programa</label>
+            <input type="text" id="inp-programa" class="cabina-input" placeholder="Nombre del programa" value="Programa de la Tarde" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="inp-cancion">Canción</label>
+            <input type="text" id="inp-cancion" class="cabina-input" placeholder="Nombre de la canción" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="inp-artista">Artista</label>
+            <input type="text" id="inp-artista" class="cabina-input" placeholder="Nombre del artista" />
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="inp-caratula">Carátula (URL imagen)</label>
+            <input type="url" id="inp-caratula" class="cabina-input" placeholder="https://..." />
+          </div>
+          <button class="btn-primary btn-full" id="btn-actualizar-cancion">
+            📡 Enviar a oyentes
+          </button>
+        </div>
+      </div>
+
+      <!-- ── Bloque 3: Accesos rápidos ── -->
+      <div class="card" id="card-accesos">
+        <div class="card-header">
+          <span class="card-icon">⚡</span>
+          <h2 class="card-title">Accesos Rápidos</h2>
+        </div>
+        <div class="accesos-grid">
+          <button class="btn-acceso" id="acc-pausa" title="Pausar/Reanudar reproducción de YouTube">
+            ⏸️ Pausar YouTube
+          </button>
+          <button class="btn-acceso" id="acc-limpiar-chat" title="Limpiar solo tu vista de peticiones">
+            🗑️ Limpiar leídos
+          </button>
+          <button class="btn-acceso" id="acc-silenciar" title="Silenciar iframe de YouTube">
+            🔇 Silenciar
+          </button>
+          <button class="btn-acceso" id="acc-avisar" title="Enviar aviso de corte comercial">
+            📢 Corte comercial
+          </button>
+        </div>
+      </div>
+
+    </section>
+    <!-- ─────────────────────────────────────────────────────── -->
+
+
+    <!-- ─────── COLUMNA DERECHA: Monitor de Peticiones ─────── -->
+    <section class="panel-peticiones" aria-label="Monitor de Peticiones y Chat">
+
+      <header class="peticiones-header">
+        <div>
+          <h2 class="card-title">📋 Peticiones en Vivo</h2>
+          <p class="card-sub">Chat de oyentes en tiempo real</p>
+        </div>
+        <div class="filtros">
+          <button class="filtro-btn active" data-filtro="todos">Todos</button>
+          <button class="filtro-btn" data-filtro="pendientes">Pendientes</button>
+          <button class="filtro-btn" data-filtro="completados">Completados</button>
+        </div>
+      </header>
+
+      <!-- Área de mensajes con scroll -->
+      <div class="peticiones-container" id="peticiones-container" role="log" aria-live="polite">
+        <!-- Los mensajes se renderizan via JS -->
+      </div>
+
+      <!-- Chat del locutor: responder / anunciar -->
+      <div class="locutor-chat-form">
+        <span class="locutor-badge">🎙️ Locutor</span>
+        <form id="form-locutor" autocomplete="off" style="display:flex;gap:8px;flex:1">
+          <input
+            type="text"
+            id="input-locutor"
+            class="cabina-input"
+            placeholder="Escribe al aire... (visible para todos)"
+            maxlength="300"
+            aria-label="Mensaje del locutor"
+          />
+          <button type="submit" class="btn-primary btn-send" aria-label="Enviar">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+
+    </section>
+    <!-- ─────────────────────────────────────────────────────── -->
+
+  </main>
+
+  <!-- Toast de notificaciones -->
+  <div class="toast" id="toast" role="alert" aria-live="assertive"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/locutor.js"></script>
+</body>
+</html>
