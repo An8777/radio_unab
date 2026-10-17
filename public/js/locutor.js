@@ -14,7 +14,7 @@ const enVivoLabel    = document.getElementById("envivo-label");
 const oyentesCount   = document.getElementById("oyentes-count");
 
 // Reproductor
-const fuenteTabs     = document.querySelectorAll(".fuente-tab");
+const fuenteTabs     = document.querySelectorAll(".src-tab");
 const panelYoutube   = document.getElementById("panel-youtube");
 const panelStream    = document.getElementById("panel-stream");
 const inputYoutube   = document.getElementById("input-youtube");
@@ -39,7 +39,7 @@ const accAvisar      = document.getElementById("acc-avisar");
 
 // Panel de peticiones
 const peticionesContainer = document.getElementById("peticiones-container");
-const filtrosBtns    = document.querySelectorAll(".filtro-btn");
+const filtrosBtns    = document.querySelectorAll(".filter-btn");
 const formLocutor    = document.getElementById("form-locutor");
 const inputLocutor   = document.getElementById("input-locutor");
 
@@ -86,15 +86,30 @@ function mostrarToast(texto, duracion = 3000) {
 }
 
 /**
- * Convierte una URL de YouTube (varios formatos) al ID del video
+ * Extrae el ID de un video de YouTube desde cualquier formato de URL:
+ * - https://www.youtube.com/watch?v=ID
+ * - https://youtu.be/ID
+ * - https://youtu.be/ID?si=TRACKING
+ * - https://youtube.com/shorts/ID
+ * - https://m.youtube.com/watch?v=ID
  */
 function extraerYoutubeId(url) {
   try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1);
+    const u = new URL(url.trim());
+    // Formato corto: youtu.be/ID
+    if (u.hostname.includes("youtu.be")) {
+      return u.pathname.slice(1).split("?")[0].split("/")[0];
+    }
+    // Formato /shorts/ID
+    if (u.pathname.includes("/shorts/")) {
+      return u.pathname.split("/shorts/")[1].split("?")[0];
+    }
+    // Formato estándar: ?v=ID
     return u.searchParams.get("v") || null;
   } catch {
-    return null;
+    // Si no es URL válida, intenta extraer con regex como último recurso
+    const m = url.match(/(?:youtu\.be\/|v=|\/shorts\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
   }
 }
 
@@ -120,32 +135,42 @@ fuenteTabs.forEach((tab) => {
   });
 });
 
+// Verificación de que los elementos críticos existen
+console.log("[INIT] btnCargarYt:", btnCargarYt);
+console.log("[INIT] ytIframe:", ytIframe);
+console.log("[INIT] inputYoutube:", inputYoutube);
+
 // ─── Cargar video de YouTube ─────────────────────────────────────────────────
 btnCargarYt.addEventListener("click", () => {
   const url = inputYoutube.value.trim();
+  console.log("[YT] URL ingresada:", url);
+
   if (!url) return mostrarToast("⚠️ Escribe una URL de YouTube primero");
 
   const id = extraerYoutubeId(url);
-  if (!id) return mostrarToast("❌ URL de YouTube no válida");
+  console.log("[YT] ID extraído:", id);
 
-  // Embed con autoplay desactivado para que el locutor controle cuándo suena
-  const embedUrl = `https://www.youtube.com/embed/${id}?enablejsapi=1`;
+  if (!id) return mostrarToast("❌ URL no válida. Copia el link completo desde YouTube.");
+
+  const embedUrl = `https://www.youtube.com/embed/${id}?autoplay=1&enablejsapi=1&rel=0`;
+  console.log("[YT] Embed URL:", embedUrl);
+
   ytIframe.src = embedUrl;
   ytIframe.style.display = "block";
   ytPlaceholder.style.display = "none";
   ytPausado = false;
   ytMuteado = false;
 
-  // Notifica al servidor para que los oyentes vean la info
+  const urlLimpia = `https://www.youtube.com/watch?v=${id}`;
   socket.emit("actualizarCancion", {
-    youtubeUrl: url,
+    youtubeUrl: urlLimpia,
     programa: inpPrograma.value || undefined,
-    cancion:  inpCancion.value || undefined,
-    artista:  inpArtista.value || undefined,
+    cancion:  inpCancion.value  || undefined,
+    artista:  inpArtista.value  || undefined,
     caratula: inpCaratula.value || undefined
   });
 
-  mostrarToast("▶️ Video de YouTube cargado");
+  mostrarToast(`▶️ Cargando video: ${id}`);
 });
 
 // ─── Aplicar URL de stream de audio ──────────────────────────────────────────
@@ -209,8 +234,10 @@ accLimpiar.addEventListener("click", () => {
 
 // Enviar aviso de corte comercial por chat
 accAvisar.addEventListener("click", () => {
+  accAvisar.disabled = true;
   socket.emit("enviarMensaje", { texto: "📢 ¡En unos momentos regresamos! Corte comercial." });
   mostrarToast("📢 Aviso de corte enviado");
+  setTimeout(() => { accAvisar.disabled = false; }, 5000);
 });
 
 // ─── Chat del locutor ────────────────────────────────────────────────────────
@@ -306,9 +333,6 @@ function renderizarPeticion(msg, esHistorial = false) {
   if (!esHistorial) scrollAlFinal();
 }
 
-/**
- * Marca una petición como completada localmente y notifica al servidor
- */
 function marcarCompletado(card, id, btn) {
   card.classList.add("completado");
   btn.textContent = "✔ Completado";
@@ -321,7 +345,7 @@ function marcarCompletado(card, id, btn) {
   }
 }
 
-// ─── Filtros de peticiones ───────────────────────────────────────────────────
+
 filtrosBtns.forEach((btn) => {
   btn.addEventListener("click", () => {
     filtrosBtns.forEach((b) => b.classList.remove("active"));
@@ -347,7 +371,7 @@ function aplicarFiltroGlobal() {
     .forEach(aplicarFiltroACard);
 }
 
-// ─── Eventos Socket.io ───────────────────────────────────────────────────────
+
 
 socket.on("bienvenida", (data) => {
   oyentesCount.textContent = data.oyentesCount;
@@ -372,9 +396,7 @@ socket.on("actualizarOyentes", (data) => {
   oyentesCount.textContent = data.count;
 });
 
-/**
- * Otro locutor (o reconexión) marcó una petición como completada
- */
+
 socket.on("peticionCompletada", (data) => {
   const ref = mensajesMap.get(data.id);
   if (ref && !ref.completado) {

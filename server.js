@@ -1,13 +1,3 @@
-/**
- * server.js — Servidor principal de Radio en Vivo
- * Stack: Node.js + Express + Socket.io
- * Funcionalidades:
- *   - Generación de apodos anónimos únicos por cada oyente
- *   - Chat en tiempo real entre oyentes y locutor
- *   - Notificaciones de sistema (entrada/salida, canción actual)
- *   - Panel del locutor separado del panel del oyente
- */
-
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -19,7 +9,7 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-// ─── Datos del juego de palabras para generar apodos ───────────────────────
+
 const ADJETIVOS = [
   "Alegre", "Veloz", "Curioso", "Valiente", "Brillante",
   "Salvaje", "Tranquilo", "Audaz", "Sereno", "Feroz",
@@ -32,10 +22,7 @@ const ANIMALES = [
   "Halcon", "Lince", "Nutria", "Panda", "Koala"
 ];
 
-/**
- * Genera un apodo único aleatorio con formato: Adjetivo_Animal_XXXX
- * Ejemplo: "Alegre_Lobo_9231"
- */
+
 function generarApodo() {
   const adj = ADJETIVOS[Math.floor(Math.random() * ADJETIVOS.length)];
   const ani = ANIMALES[Math.floor(Math.random() * ANIMALES.length)];
@@ -47,9 +34,9 @@ function generarApodo() {
 let estadoRadio = {
   enVivo: true,
   programaActual: "Programa de la Tarde",
-  cancionActual: "Sin información",
+  cancionActual: "En Vivo",
   artista: "",
-  caratula: "https://placehold.co/300x300/1a1a2e/e94560?text=RADIO+EN+VIVO",
+  caratula: "/img/logo.jpg",
   streamUrl: "",  // URL del stream de audio (configurable por el locutor)
   youtubeUrl: ""  // URL de YouTube activa
 };
@@ -198,7 +185,7 @@ io.on("connection", (socket) => {
   });
 });
 
-// ─── Arrancar servidor ──────────────────────────────────────────────────────
+//   ─── Arrancar servidor ───────  //
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`\n🎙️  Radio en Vivo corriendo en: http://localhost:${PORT}`);

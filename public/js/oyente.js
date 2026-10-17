@@ -1,160 +1,104 @@
 /**
- * oyente.js — RADIO UNAB · Panel del Oyente
- * Reproductor via YouTube IFrame API (el iframe lo crea la propia API).
+ * oyente.js — RADIO UNAB
+ * Reproductor via YouTube IFrame API + chat en tiempo real
  */
 
-// ─── Conexión al servidor ────────────────────────────────────────────────────
 const socket = io({ query: { rol: "oyente" } });
 
-// ─── DOM ─────────────────────────────────────────────────────────────────────
-const imgCaratula       = document.getElementById("img-caratula");
-const caratulaRing      = document.getElementById("caratula-ring");
-const programaNombre    = document.getElementById("programa-nombre");
-const cancionNombre     = document.getElementById("cancion-nombre");
-const artistaNombre     = document.getElementById("artista-nombre");
-const oyentesCount      = document.getElementById("oyentes-count");
-const miApodoEl         = document.getElementById("mi-apodo");
-const mensajesContainer = document.getElementById("mensajes-container");
-const chatForm          = document.getElementById("chat-form");
-const inputMensaje      = document.getElementById("input-mensaje");
-const badgeEnVivo       = document.getElementById("badge-envivo");
-const btnPlay           = document.getElementById("btn-play");
-const iconPlay          = document.getElementById("icon-play");
-const iconPause         = document.getElementById("icon-pause");
-const btnMute           = document.getElementById("btn-mute");
-const iconVolOn         = document.getElementById("icon-vol-on");
-const iconVolOff        = document.getElementById("icon-vol-off");
-const sliderVolumen     = document.getElementById("slider-volumen");
-const volPct            = document.getElementById("vol-pct");
-const audioBars         = document.getElementById("audio-bars");
-const estadoTxt         = document.getElementById("estado-txt");
+// ── DOM ──────────────────────────────────────────────────────────
+const imgCaratula    = document.getElementById("img-caratula");
+const diskWrap       = document.getElementById("disk-wrap");
+const diskGlow       = document.getElementById("disk-glow");
+const eqBars         = document.getElementById("eq-bars");
+const livePill       = document.getElementById("live-pill");
+const programaNombre = document.getElementById("programa-nombre");
+const cancionNombre  = document.getElementById("cancion-nombre");
+const artistaNombre  = document.getElementById("artista-nombre");
+const oyentesCount   = document.getElementById("oyentes-count");
+const miApodoEl      = document.getElementById("mi-apodo");
+const msgsContainer  = document.getElementById("mensajes-container");
+const chatForm       = document.getElementById("chat-form");
+const inputMensaje   = document.getElementById("input-mensaje");
 
-// ─── Estado ──────────────────────────────────────────────────────────────────
-let miApodoLocal  = "";
-let ytPlayer      = null;    // instancia YT.Player
-let ytIdActivo    = null;    // ID del video activo
-let reproduciendo = false;
-let muteado       = false;
-let volActual     = 100;
-let ytAPILista    = false;
-let pendienteId   = null;    // video esperando a que la API esté lista
+const btnPlay        = document.getElementById("btn-play");
+const iconPlay       = document.getElementById("icon-play");
+const iconPause      = document.getElementById("icon-pause");
+const btnMute        = document.getElementById("btn-mute");
+const iconVolOn      = document.getElementById("icon-vol-on");
+const iconVolOff     = document.getElementById("icon-vol-off");
+const sliderVolumen  = document.getElementById("slider-volumen");
+const volPct         = document.getElementById("vol-pct");
+const estadoTxt      = document.getElementById("estado-txt");
 
-// ─── YouTube IFrame API ──────────────────────────────────────────────────────
-// Carga el script de la API dinámicamente
-const tag = document.createElement("script");
-tag.src = "https://www.youtube.com/iframe_api";
-document.head.appendChild(tag);
+// ── Estado ───────────────────────────────────────────────────────
+let miApodoLocal = "";
+let ytPlayer     = null;
+let ytIdActivo   = null;
+let reproduciendo= false;
+let muteado      = false;
+let volActual    = 100;
+let ytAPILista   = false;
+let pendienteId  = null;
 
-/**
- * Callback global que YouTube llama cuando la API está lista.
- * DEBE estar en window para que la API lo encuentre.
- */
+// ── YouTube IFrame API ───────────────────────────────────────────
+const ytTag = document.createElement("script");
+ytTag.src = "https://www.youtube.com/iframe_api";
+document.head.appendChild(ytTag);
+
 window.onYouTubeIframeAPIReady = function () {
   ytAPILista = true;
-  // Si ya había un video esperando, lo cargamos ahora
-  if (pendienteId) {
-    iniciarPlayer(pendienteId);
-    pendienteId = null;
-  }
+  if (pendienteId) { iniciarPlayer(pendienteId); pendienteId = null; }
 };
 
-/**
- * Crea el YT.Player la primera vez o carga un nuevo video si ya existe.
- * La API crea el iframe dentro de #yt-player-container.
- */
 function iniciarPlayer(videoId) {
   if (ytPlayer) {
-    // El player ya existe: solo cambia el video
     ytPlayer.loadVideoById(videoId);
     ytIdActivo = videoId;
-    // loadVideoById arranca solo; el evento onStateChange actualizará el estado
   } else {
-    // Primera vez: crear el player (la API inyecta el iframe en el div)
     ytPlayer = new YT.Player("yt-player-container", {
-      width: "1",
-      height: "1",
-      videoId: videoId,
-      playerVars: {
-        autoplay:        1,
-        controls:        0,
-        modestbranding:  1,
-        rel:             0,
-        iv_load_policy:  3,
-        playsinline:     1
-      },
+      width: "1", height: "1",
+      videoId,
+      playerVars: { autoplay: 1, controls: 0, modestbranding: 1, rel: 0, playsinline: 1 },
       events: {
-        onReady: function (e) {
+        onReady: (e) => {
           e.target.setVolume(volActual);
           if (muteado) e.target.mute();
           ytIdActivo = videoId;
-          // onReady dispara antes de que empiece a sonar;
-          // el estado visual lo actualizamos en onStateChange
         },
-        onStateChange: function (e) {
-          switch (e.data) {
-            case YT.PlayerState.PLAYING:
-              setEstado(true);
-              break;
-            case YT.PlayerState.PAUSED:
-            case YT.PlayerState.ENDED:
-              setEstado(false);
-              break;
-            case YT.PlayerState.BUFFERING:
-              setEstadoTxt("Cargando...");
-              break;
-          }
+        onStateChange: (e) => {
+          if (e.data === YT.PlayerState.PLAYING)       setEstado(true);
+          else if (e.data === YT.PlayerState.PAUSED ||
+                   e.data === YT.PlayerState.ENDED)    setEstado(false);
+          else if (e.data === YT.PlayerState.BUFFERING) setEstadoTxt("Cargando...");
         },
-        onError: function (e) {
-          setEstadoTxt("Error al cargar el video (" + e.data + ")");
-        }
+        onError: () => setEstadoTxt("Error al cargar el video")
       }
     });
   }
 }
 
-/**
- * Punto de entrada para cargar un video dado su URL de YouTube.
- * Maneja el caso de que la API aún no esté lista.
- */
-function cargarVideo(youtubeUrl) {
-  const id = extraerYoutubeId(youtubeUrl);
-  if (!id) return;
-  if (id === ytIdActivo) return; // mismo video, nada que hacer
-
-  if (!ytAPILista) {
-    pendienteId = id;
-    setEstadoTxt("Preparando el reproductor...");
-    return;
-  }
-
+function cargarVideo(url) {
+  const id = ytId(url);
+  if (!id || id === ytIdActivo) return;
+  if (!ytAPILista) { pendienteId = id; setEstadoTxt("Preparando..."); return; }
   iniciarPlayer(id);
 }
 
-// ─── Botón Play / Pausa ──────────────────────────────────────────────────────
+// ── Controles ────────────────────────────────────────────────────
 btnPlay.addEventListener("click", () => {
-  if (!ytPlayer) {
-    setEstadoTxt("Esperando que el locutor ponga una canción...");
-    return;
-  }
-  const state = ytPlayer.getPlayerState();
-  if (state === YT.PlayerState.PLAYING) {
-    ytPlayer.pauseVideo();
-  } else {
-    ytPlayer.playVideo();
-  }
+  if (!ytPlayer) { setEstadoTxt("Esperando que el locutor ponga una canción..."); return; }
+  reproduciendo ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
 });
 
-// ─── Volumen ─────────────────────────────────────────────────────────────────
 sliderVolumen.addEventListener("input", () => {
   volActual = parseInt(sliderVolumen.value);
   volPct.textContent = volActual + "%";
   actualizarSlider();
   if (ytPlayer) ytPlayer.setVolume(volActual);
-  // Si sube el volumen estando muteado, desmutea
   if (muteado && volActual > 0) {
     muteado = false;
     if (ytPlayer) ytPlayer.unMute();
-    iconVolOn.style.display  = "block";
+    iconVolOn.style.display = "block";
     iconVolOff.style.display = "none";
   }
 });
@@ -162,109 +106,89 @@ sliderVolumen.addEventListener("input", () => {
 btnMute.addEventListener("click", () => {
   muteado = !muteado;
   if (ytPlayer) muteado ? ytPlayer.mute() : ytPlayer.unMute();
-  iconVolOn.style.display  = muteado ? "none"  : "block";
+  iconVolOn.style.display  = muteado ? "none" : "block";
   iconVolOff.style.display = muteado ? "block" : "none";
 });
 
 function actualizarSlider() {
   sliderVolumen.style.background =
-    `linear-gradient(to right, var(--accent) ${volActual}%, var(--bg-input) ${volActual}%)`;
+    `linear-gradient(to right, var(--acc) ${volActual}%, var(--input) ${volActual}%)`;
 }
-actualizarSlider(); // estado inicial
+actualizarSlider();
 
-// ─── Helpers visuales ────────────────────────────────────────────────────────
+// ── Visual ───────────────────────────────────────────────────────
 function setEstado(playing) {
   reproduciendo = playing;
-  iconPlay.style.display  = playing ? "none"  : "block";
+  iconPlay.style.display  = playing ? "none" : "block";
   iconPause.style.display = playing ? "block" : "none";
-  audioBars.classList.toggle("activo", playing);
-  caratulaRing.classList.toggle("girando", playing);
-  setEstadoTxt(playing ? "Reproduciendo en vivo" : "Pausado — clic ▶ para continuar");
+  btnPlay.classList.toggle("playing", playing);
+  diskWrap.classList.toggle("spinning", playing);
+  diskGlow.classList.toggle("active", playing);
+  eqBars.classList.toggle("active", playing);
+  imgCaratula.classList.toggle("playing", playing);
+  setEstadoTxt(playing ? "Reproduciendo en vivo" : "Pausado");
 }
 
-function setEstadoTxt(txt) { estadoTxt.textContent = txt; }
+function setEstadoTxt(t) { estadoTxt.textContent = t; }
 
-// ─── Utilidades ──────────────────────────────────────────────────────────────
-function extraerYoutubeId(url) {
+// ── Utilidades ───────────────────────────────────────────────────
+function ytId(url) {
   try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1).split("?")[0];
+    const u = new URL(url.trim());
+    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1).split("?")[0].split("/")[0];
+    if (u.pathname.includes("/shorts/")) return u.pathname.split("/shorts/")[1].split("?")[0];
     return u.searchParams.get("v") || null;
-  } catch { return null; }
+  } catch {
+    const m = url.match(/(?:youtu\.be\/|v=|\/shorts\/)([a-zA-Z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
 }
 
-function formatearHora(iso) {
+function hora(iso) {
   return new Date(iso).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
 }
 
-function iniciales(apodo) {
+function inits(apodo) {
   const p = apodo.split("_");
   return (p[0]?.[0] || "?") + (p[1]?.[0] || "");
 }
 
-function scrollAlFinal() {
-  mensajesContainer.scrollTop = mensajesContainer.scrollHeight;
-}
+function scrollFin() { msgsContainer.scrollTop = msgsContainer.scrollHeight; }
 
-// Escapa HTML solo para insertar en atributos; para textContent no hace falta
-function escaparHTML(str) {
-  return String(str)
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-}
-
-// ─── Chat ─────────────────────────────────────────────────────────────────────
-function renderizarMensaje(msg, esHistorial = false) {
+// ── Chat ─────────────────────────────────────────────────────────
+function renderMsg(msg, hist = false) {
   if (msg.tipo === "sistema") {
-    const div = document.createElement("div");
-    div.className = "mensaje-sistema";
-    div.textContent = msg.texto; // textContent evita XSS sin escapar manualmente
-    mensajesContainer.appendChild(div);
-    if (!esHistorial) scrollAlFinal();
-    return;
+    const d = document.createElement("div");
+    d.className = "msg-sys"; d.textContent = msg.texto;
+    msgsContainer.appendChild(d);
+    if (!hist) scrollFin(); return;
   }
-
   const soyYo = msg.apodo === miApodoLocal;
-  const esLoc = msg.tipo === "locutor";
+  const esLoc  = msg.tipo === "locutor";
 
-  const div = document.createElement("div");
-  div.className = "mensaje";
+  const wrap = document.createElement("div"); wrap.className = "msg";
+  const av   = document.createElement("div");
+  av.className = `msg-av ${esLoc ? "av-loc" : "av-user"}`;
+  av.textContent = inits(msg.apodo);
 
-  const avatar = document.createElement("div");
-  avatar.className = `mensaje-avatar ${esLoc ? "avatar-locutor" : "avatar-oyente"}`;
-  avatar.textContent = iniciales(msg.apodo);
+  const body = document.createElement("div"); body.className = "msg-body";
+  const meta = document.createElement("div"); meta.className = "msg-meta";
 
-  const body = document.createElement("div");
-  body.className = "mensaje-body";
+  const name = document.createElement("span");
+  name.className = "msg-name" + (esLoc ? " is-loc" : "") + (soyYo ? " is-me" : "");
+  name.textContent = esLoc ? `🎙️ ${msg.apodo}` : soyYo ? `${msg.apodo} (tú)` : msg.apodo;
 
-  const meta = document.createElement("div");
-  meta.className = "mensaje-meta";
+  const time = document.createElement("span");
+  time.className = "msg-time"; time.textContent = hora(msg.timestamp);
 
-  const apodoEl = document.createElement("span");
-  apodoEl.className = "mensaje-apodo" +
-    (esLoc ? " apodo-locutor" : "") + (soyYo ? " apodo-yo" : "");
-  // textContent asigna texto plano, sin riesgo de XSS
-  apodoEl.textContent = esLoc
-    ? `🎙️ ${msg.apodo}`
-    : soyYo ? `${msg.apodo} (tú)` : msg.apodo;
+  const txt = document.createElement("p");
+  txt.className = "msg-text"; txt.textContent = msg.texto;
 
-  const horaEl = document.createElement("span");
-  horaEl.className = "mensaje-hora";
-  horaEl.textContent = formatearHora(msg.timestamp);
-
-  const textoEl = document.createElement("p");
-  textoEl.className = "mensaje-texto";
-  textoEl.textContent = msg.texto; // textContent — sin doble escape
-
-  meta.appendChild(apodoEl);
-  meta.appendChild(horaEl);
-  body.appendChild(meta);
-  body.appendChild(textoEl);
-  div.appendChild(avatar);
-  div.appendChild(body);
-  mensajesContainer.appendChild(div);
-
-  if (!esHistorial) scrollAlFinal();
+  meta.appendChild(name); meta.appendChild(time);
+  body.appendChild(meta); body.appendChild(txt);
+  wrap.appendChild(av); wrap.appendChild(body);
+  msgsContainer.appendChild(wrap);
+  if (!hist) scrollFin();
 }
 
 chatForm.addEventListener("submit", (e) => {
@@ -276,31 +200,30 @@ chatForm.addEventListener("submit", (e) => {
   inputMensaje.focus();
 });
 
-// ─── Socket.io ────────────────────────────────────────────────────────────────
-socket.on("bienvenida", (data) => {
-  miApodoLocal = data.apodo;
-  miApodoEl.textContent = data.apodo;
-  aplicarEstado(data.estadoRadio);
-  oyentesCount.textContent = data.oyentesCount;
+// ── Socket ───────────────────────────────────────────────────────
+socket.on("bienvenida", (d) => {
+  miApodoLocal = d.apodo;
+  miApodoEl.textContent = d.apodo;
+  aplicar(d.estadoRadio);
+  oyentesCount.textContent = d.oyentesCount;
 });
 
-socket.on("historialChat",     (h) => { h.forEach((m) => renderizarMensaje(m, true)); scrollAlFinal(); });
-socket.on("nuevoMensaje",      (m) => renderizarMensaje(m));
-socket.on("mensajeSistema",    (m) => renderizarMensaje(m));
-socket.on("cancionActualizada",(e) => aplicarEstado(e));
+socket.on("historialChat",     (h) => { h.forEach(m => renderMsg(m, true)); scrollFin(); });
+socket.on("nuevoMensaje",      renderMsg);
+socket.on("mensajeSistema",    renderMsg);
+socket.on("cancionActualizada", aplicar);
 socket.on("actualizarOyentes", (d) => { oyentesCount.textContent = d.count; });
-socket.on("estadoEnVivo",      (d) => { badgeEnVivo.classList.toggle("offline", !d.enVivo); });
+socket.on("estadoEnVivo",      (d) => { livePill.classList.toggle("offline", !d.enVivo); });
 
-function aplicarEstado(estado) {
-  if (!estado) return;
-  if (estado.cancionActual)  cancionNombre.textContent  = estado.cancionActual;
-  if (estado.artista)        artistaNombre.textContent  = estado.artista;
-  if (estado.programaActual) programaNombre.textContent = estado.programaActual;
-  if (estado.caratula)       imgCaratula.src            = estado.caratula;
-  if (!estado.enVivo)        badgeEnVivo.classList.add("offline");
-
-  if (estado.youtubeUrl) {
-    const id = extraerYoutubeId(estado.youtubeUrl);
-    if (id && id !== ytIdActivo) cargarVideo(estado.youtubeUrl);
+function aplicar(e) {
+  if (!e) return;
+  if (e.cancionActual)  cancionNombre.textContent  = e.cancionActual;
+  if (e.artista)        artistaNombre.textContent  = e.artista;
+  if (e.programaActual) programaNombre.textContent = e.programaActual;
+  if (e.caratula)       imgCaratula.src            = e.caratula;
+  if (!e.enVivo)        livePill.classList.add("offline");
+  if (e.youtubeUrl) {
+    const id = ytId(e.youtubeUrl);
+    if (id && id !== ytIdActivo) cargarVideo(e.youtubeUrl);
   }
 }
