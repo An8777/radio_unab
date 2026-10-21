@@ -227,3 +227,76 @@ function aplicar(e) {
     if (id && id !== ytIdActivo) cargarVideo(e.youtubeUrl);
   }
 }
+
+// ─── VOZ EN VIVO (WebRTC) ────────────────────────────────────────────────────
+let pcVoz       = null;  // RTCPeerConnection con el locutor
+let audioLocutor = null; // elemento <audio> para reproducir la voz
+const vozConfig  = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+
+/**
+ * El locutor activó el micrófono — pausa el video de YouTube en el oyente
+ * y se prepara para recibir el audio.
+ */
+socket.on("voz-inicio", () => {
+  setEstadoTxt("🎙️ El locutor está hablando...");
+  // Pausa el video de YouTube localmente
+  if (ytPlayer && reproduciendo) ytPlayer.pauseVideo();
+});
+
+/**
+ * El locutor dejó el aire — reanuda YouTube
+ */
+socket.on("voz-fin", () => {
+  setEstadoTxt("Reproduciendo en vivo");
+  // Cierra la conexión WebRTC
+  if (pcVoz) { pcVoz.close(); pcVoz = null; }
+  // Reanuda YouTube
+  if (ytPlayer) ytPlayer.playVideo();
+});
+
+/**
+ * Recibe la oferta WebRTC del locutor y responde.
+ */
+socket.on("voz-oferta", async (data) => {
+  try {
+    const señal = data.señal;
+
+    if (señal.type === "offer") {
+      // Nueva conexión
+      pcVoz = new RTCPeerConnection(vozConfig);
+
+      // Cuando llega el audio del locutor, lo reproduce
+      pcVoz.ontrack = (e) => {
+        if (!audioLocutor) {
+          audioLocutor = document.createElement("audio");
+          audioLocutor.autoplay = true;
+          audioLocutor.style.display = "none";
+          document.body.appendChild(audioLocutor);
+        }
+        audioLocutor.srcObject = e.streams[0];
+      };
+
+      // Envía candidatos ICE al locutor
+      pcVoz.onicecandidate = (e) => {
+        if (e.candidate) {
+          socket.emit("voz-respuesta", {
+            locutor: data.locutor,
+            señal: { type: "candidate", candidate: e.candidate }
+          });
+        }
+      };
+
+      await pcVoz.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: señal.sdp }));
+      const respuesta = await pcVoz.createAnswer();
+      await pcVoz.setLocalDescription(respuesta);
+
+      socket.emit("voz-respuesta", {
+        locutor: data.locutor,
+        señal: { type: "answer", sdp: respuesta.sdp }
+      });
+
+    } else if (señal.type === "candidate" && pcVoz) {
+      await pcVoz.addIceCandidate(new RTCIceCandidate(señal.candidate));
+    }
+  } catch (e) { console.warn("[WebRTC] Error oyente:", e); }
+});

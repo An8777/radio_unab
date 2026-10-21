@@ -106,6 +106,17 @@ io.on("connection", (socket) => {
   // 4. Actualiza el contador de oyentes para todos
   io.emit("actualizarOyentes", { count: oyentesConectados.size });
 
+  // 5. Si el locutor ya está al aire con el micrófono, avisa al nuevo oyente
+  if (!esLocutor && estadoRadio.vozActiva) {
+    socket.emit("voz-inicio");
+    // Notifica al locutor que hay un nuevo oyente para que conecte WebRTC
+    const locutorSocket = [...oyentesConectados.entries()]
+      .find(([, v]) => v.esLocutor);
+    if (locutorSocket) {
+      io.to(locutorSocket[0]).emit("oyente-conectado-voz", { socketId: socket.id });
+    }
+  }
+
   // ── Evento: mensaje de chat enviado por un oyente o el locutor ──
   socket.on("enviarMensaje", (data) => {
     const usuario = oyentesConectados.get(socket.id);
@@ -162,8 +173,51 @@ io.on("connection", (socket) => {
   // ── Evento: el locutor marca una petición como completada ──
   socket.on("marcarCompletado", (data) => {
     if (!oyentesConectados.get(socket.id)?.esLocutor) return;
-    // Notifica a todos (el ID del mensaje queda gestionado en el frontend)
     io.emit("peticionCompletada", { id: data.id });
+  });
+
+  // ── WebRTC: señalización para voz en vivo ──────────────────────────────────
+  // El locutor envía señal de oferta a todos los oyentes
+  socket.on("voz-oferta", (data) => {
+    if (!oyentesConectados.get(socket.id)?.esLocutor) return;
+    // Reenvía la oferta a un oyente específico
+    socket.to(data.destinatario).emit("voz-oferta", {
+      señal: data.señal,
+      locutor: socket.id
+    });
+  });
+
+  // Un oyente responde con su señal de respuesta al locutor
+  socket.on("voz-respuesta", (data) => {
+    socket.to(data.locutor).emit("voz-respuesta", {
+      señal: data.señal,
+      oyente: socket.id
+    });
+  });
+
+  // El locutor activa/desactiva el micrófono — avisa a todos
+  socket.on("voz-inicio", () => {
+    if (!oyentesConectados.get(socket.id)?.esLocutor) return;
+    estadoRadio.vozActiva = true;
+    console.log("[Voz] Locutor al aire");
+    io.emit("voz-inicio", { locutor: socket.id });
+    io.emit("mensajeSistema", {
+      tipo: "sistema",
+      texto: "🎙️ El locutor está hablando en vivo",
+      timestamp: new Date().toISOString()
+    });
+  });
+
+  socket.on("voz-fin", () => {
+    if (!oyentesConectados.get(socket.id)?.esLocutor) return;
+    estadoRadio.vozActiva = false;
+    console.log("[Voz] Locutor dejó el aire");
+    io.emit("voz-fin");
+    io.emit("mensajeSistema", {
+      tipo: "sistema",
+      texto: "🎵 Volviendo a la música",
+      timestamp: new Date().toISOString()
+    });
   });
 
   // ── Desconexión ──
