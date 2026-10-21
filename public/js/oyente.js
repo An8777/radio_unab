@@ -228,75 +228,38 @@ function aplicar(e) {
   }
 }
 
-// ─── VOZ EN VIVO (WebRTC) ────────────────────────────────────────────────────
-let pcVoz       = null;  // RTCPeerConnection con el locutor
-let audioLocutor = null; // elemento <audio> para reproducir la voz
-const vozConfig  = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+// ─── VOZ EN VIVO (MediaRecorder + Socket.io) ────────────────────────────────
+let audioCtx    = null;
+let sourceQueue = [];
+let vozBuffer   = [];
+let vozMimeType = "audio/webm;codecs=opus";
 
-/**
- * El locutor activó el micrófono — pausa el video de YouTube en el oyente
- * y se prepara para recibir el audio.
- */
 socket.on("voz-inicio", () => {
   setEstadoTxt("🎙️ El locutor está hablando...");
-  // Pausa el video de YouTube localmente
+  vozBuffer = [];
   if (ytPlayer && reproduciendo) ytPlayer.pauseVideo();
 });
 
-/**
- * El locutor dejó el aire — reanuda YouTube
- */
 socket.on("voz-fin", () => {
-  setEstadoTxt("Reproduciendo en vivo");
-  // Cierra la conexión WebRTC
-  if (pcVoz) { pcVoz.close(); pcVoz = null; }
-  // Reanuda YouTube
+  setEstadoTxt(reproduciendo ? "Reproduciendo en vivo" : "Pausado");
+  vozBuffer = [];
   if (ytPlayer) ytPlayer.playVideo();
 });
 
-/**
- * Recibe la oferta WebRTC del locutor y responde.
- */
-socket.on("voz-oferta", async (data) => {
+// Recibe chunks de audio y los reproduce
+socket.on("voz-chunk", async (chunk) => {
   try {
-    const señal = data.señal;
+    // Inicializa AudioContext la primera vez (requiere interacción del usuario previa)
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") await audioCtx.resume();
 
-    if (señal.type === "offer") {
-      // Nueva conexión
-      pcVoz = new RTCPeerConnection(vozConfig);
-
-      // Cuando llega el audio del locutor, lo reproduce
-      pcVoz.ontrack = (e) => {
-        if (!audioLocutor) {
-          audioLocutor = document.createElement("audio");
-          audioLocutor.autoplay = true;
-          audioLocutor.style.display = "none";
-          document.body.appendChild(audioLocutor);
-        }
-        audioLocutor.srcObject = e.streams[0];
-      };
-
-      // Envía candidatos ICE al locutor
-      pcVoz.onicecandidate = (e) => {
-        if (e.candidate) {
-          socket.emit("voz-respuesta", {
-            locutor: data.locutor,
-            señal: { type: "candidate", candidate: e.candidate }
-          });
-        }
-      };
-
-      await pcVoz.setRemoteDescription(new RTCSessionDescription({ type: "offer", sdp: señal.sdp }));
-      const respuesta = await pcVoz.createAnswer();
-      await pcVoz.setLocalDescription(respuesta);
-
-      socket.emit("voz-respuesta", {
-        locutor: data.locutor,
-        señal: { type: "answer", sdp: respuesta.sdp }
-      });
-
-    } else if (señal.type === "candidate" && pcVoz) {
-      await pcVoz.addIceCandidate(new RTCIceCandidate(señal.candidate));
-    }
-  } catch (e) { console.warn("[WebRTC] Error oyente:", e); }
+    const arrayBuf = chunk instanceof ArrayBuffer ? chunk : await chunk.arrayBuffer();
+    const audioBuf = await audioCtx.decodeAudioData(arrayBuf.slice(0));
+    const source   = audioCtx.createBufferSource();
+    source.buffer  = audioBuf;
+    source.connect(audioCtx.destination);
+    source.start();
+  } catch (e) {
+    // Algunos chunks intermedios no son decodificables individualmente — ignorar
+  }
 });

@@ -412,19 +412,14 @@ socket.on("peticionCompletada", (data) => {
   }
 });
 
-// ─── VOZ EN VIVO (WebRTC) ────────────────────────────────────────────────────
+// ─── VOZ EN VIVO (MediaRecorder + Socket.io) ────────────────────────────────
 const btnVoz    = document.getElementById("btn-voz");
 const btnVozTxt = document.getElementById("btn-voz-txt");
 
-let vozActiva      = false;
-let streamMic      = null;  // MediaStream del micrófono
-let peers          = {};    // { socketId -> RTCPeerConnection }
-const vozConfig    = { iceServers: [{ urls: "stun:stun.l.google.com:19302" }] };
+let vozActiva   = false;
+let streamMic   = null;
+let mediaRec    = null;
 
-/**
- * Activa el micrófono y crea una conexión WebRTC con cada oyente conectado.
- * Pausa el video de YouTube mientras el locutor habla.
- */
 async function iniciarVoz() {
   try {
     streamMic = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
@@ -433,6 +428,23 @@ async function iniciarVoz() {
     return;
   }
 
+  // Detecta el formato soportado
+  const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+    ? "audio/webm;codecs=opus"
+    : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+      ? "audio/ogg;codecs=opus"
+      : "audio/webm";
+
+  mediaRec = new MediaRecorder(streamMic, { mimeType, audioBitsPerSecond: 32000 });
+
+  // Cada 250ms envía un chunk al servidor
+  mediaRec.ondataavailable = (e) => {
+    if (e.data && e.data.size > 0) {
+      e.data.arrayBuffer().then(buf => socket.emit("voz-chunk", buf));
+    }
+  };
+
+  mediaRec.start(250);
   vozActiva = true;
   btnVoz.classList.add("al-aire");
   btnVozTxt.textContent = "⏹ Dejar el Aire";
@@ -444,30 +456,17 @@ async function iniciarVoz() {
     accPausa.textContent = "▶️ Reanudar YouTube";
   }
 
-  // Notifica al servidor que el locutor está al aire
   socket.emit("voz-inicio");
-
-  mostrarToast("🎙️ Micrófono activado — estás al aire");
+  mostrarToast("🎙️ Estás al aire");
 }
 
-/**
- * Desactiva el micrófono y cierra todas las conexiones WebRTC.
- * Reanuda el video de YouTube.
- */
 function detenerVoz() {
+  if (mediaRec && mediaRec.state !== "inactive") mediaRec.stop();
+  if (streamMic) { streamMic.getTracks().forEach(t => t.stop()); streamMic = null; }
+
   vozActiva = false;
   btnVoz.classList.remove("al-aire");
   btnVozTxt.textContent = "🎙️ Ir al Aire";
-
-  // Cierra el stream del micrófono
-  if (streamMic) {
-    streamMic.getTracks().forEach(t => t.stop());
-    streamMic = null;
-  }
-
-  // Cierra todas las conexiones peer
-  Object.values(peers).forEach(pc => pc.close());
-  peers = {};
 
   // Reanuda YouTube
   if (ytIframe && ytIframe.src) {
@@ -480,58 +479,7 @@ function detenerVoz() {
   mostrarToast("🎵 Volviendo a la música");
 }
 
-// Toggle al hacer clic
 btnVoz.addEventListener("click", () => {
   if (!vozActiva) iniciarVoz();
   else detenerVoz();
-});
-
-/**
- * Crea una conexión WebRTC con un oyente específico y envía el audio del micrófono.
- */
-async function conectarConOyente(oyenteId) {
-  if (!streamMic || peers[oyenteId]) return;
-
-  const pc = new RTCPeerConnection(vozConfig);
-  peers[oyenteId] = pc;
-
-  // Agrega el track del micrófono
-  streamMic.getTracks().forEach(track => pc.addTrack(track, streamMic));
-
-  // Envía candidatos ICE al oyente via Socket.io
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      socket.emit("voz-oferta", {
-        destinatario: oyenteId,
-        señal: { type: "candidate", candidate: e.candidate }
-      });
-    }
-  };
-
-  // Crea y envía la oferta
-  const oferta = await pc.createOffer();
-  await pc.setLocalDescription(oferta);
-  socket.emit("voz-oferta", {
-    destinatario: oyenteId,
-    señal: { type: "offer", sdp: oferta.sdp }
-  });
-}
-
-// Cuando un oyente se conecta estando el mic activo, conecta con él
-socket.on("oyente-conectado-voz", (data) => {
-  if (vozActiva) conectarConOyente(data.socketId);
-});
-
-// Recibe respuesta SDP de un oyente
-socket.on("voz-respuesta", async (data) => {
-  const pc = peers[data.oyente];
-  if (!pc) return;
-  try {
-    const desc = data.señal;
-    if (desc.type === "answer") {
-      await pc.setRemoteDescription(new RTCSessionDescription({ type: "answer", sdp: desc.sdp }));
-    } else if (desc.type === "candidate") {
-      await pc.addIceCandidate(new RTCIceCandidate(desc.candidate));
-    }
-  } catch (e) { console.warn("[WebRTC] Error procesando respuesta:", e); }
 });

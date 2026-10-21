@@ -176,31 +176,18 @@ io.on("connection", (socket) => {
     io.emit("peticionCompletada", { id: data.id });
   });
 
-  // ── WebRTC: señalización para voz en vivo ──────────────────────────────────
-  // El locutor envía señal de oferta a todos los oyentes
-  socket.on("voz-oferta", (data) => {
+  // ── Voz en vivo: el locutor envía chunks de audio via Socket.io ─────────────
+  socket.on("voz-chunk", (chunk) => {
     if (!oyentesConectados.get(socket.id)?.esLocutor) return;
-    // Reenvía la oferta a un oyente específico
-    socket.to(data.destinatario).emit("voz-oferta", {
-      señal: data.señal,
-      locutor: socket.id
-    });
+    // Reenvía el chunk de audio a todos los oyentes
+    socket.broadcast.emit("voz-chunk", chunk);
   });
 
-  // Un oyente responde con su señal de respuesta al locutor
-  socket.on("voz-respuesta", (data) => {
-    socket.to(data.locutor).emit("voz-respuesta", {
-      señal: data.señal,
-      oyente: socket.id
-    });
-  });
-
-  // El locutor activa/desactiva el micrófono — avisa a todos
   socket.on("voz-inicio", () => {
     if (!oyentesConectados.get(socket.id)?.esLocutor) return;
     estadoRadio.vozActiva = true;
     console.log("[Voz] Locutor al aire");
-    io.emit("voz-inicio", { locutor: socket.id });
+    socket.broadcast.emit("voz-inicio");
     io.emit("mensajeSistema", {
       tipo: "sistema",
       texto: "🎙️ El locutor está hablando en vivo",
@@ -212,7 +199,7 @@ io.on("connection", (socket) => {
     if (!oyentesConectados.get(socket.id)?.esLocutor) return;
     estadoRadio.vozActiva = false;
     console.log("[Voz] Locutor dejó el aire");
-    io.emit("voz-fin");
+    socket.broadcast.emit("voz-fin");
     io.emit("mensajeSistema", {
       tipo: "sistema",
       texto: "🎵 Volviendo a la música",
